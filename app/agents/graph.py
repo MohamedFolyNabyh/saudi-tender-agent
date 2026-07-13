@@ -2,7 +2,7 @@ from typing import TypedDict
 from langgraph.graph import StateGraph, END
 
 # 1. استيراد الخدمات الجاهزة من الـ Container بتاعك مباشرة
-from app.containers.services import memory_service, hybrid_service, llm_service
+from app.core.container import memory_service, hybrid_service, llm_service
 
 
 class GraphState(TypedDict):

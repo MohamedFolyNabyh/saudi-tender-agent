@@ -1,13 +1,13 @@
 import logging
 from typing import List
+
 from langchain_core.documents import Document
-from rank_bm25 import BM25OKapi
+from rank_bm25 import BM25Okapi
 from sentence_transformers import CrossEncoder
+
 from app.services.vector_service import VectorService
 
-logger=logging.getLogger(__name__)
-
-
+logger = logging.getLogger(__name__)
 
 
 class HybridSearchService:
@@ -16,84 +16,101 @@ class HybridSearchService:
 
         self.vector_service = vector_service
 
-        # سيتم بناؤه بعد رفع الـ PDFs
-        self.bm25 = None
-
         self.documents: List[Document] = []
 
-        # Cross Encoder لإعادة ترتيب النتائج
+        self.bm25: BM25Okapi | None = None
+
         self.reranker = CrossEncoder(
             "BAAI/bge-reranker-base"
         )
 
-        logger.info(
-            "Hybrid Search Service Initialized."
-        )
-    def build_bm25(self,documents: List[Document]) -> None:
-        logger.info("Building BM25 Index..." )
+        logger.info("Hybrid Search Service Initialized.")
+
+    # --------------------------------------------------------
+    # Build BM25 Index
+    # --------------------------------------------------------
+
+    def build_bm25(
+        self,
+        documents: List[Document]
+    ) -> None:
+
+        logger.info("Building BM25 index...")
 
         self.documents = documents
 
         corpus = [
-        doc.page_content.split()
-        for doc in documents
+            doc.page_content.split()
+            for doc in documents
         ]
 
         self.bm25 = BM25Okapi(corpus)
 
-        logger.info("BM25 Ready.")
-    def dense_search(self,query: str,k: int = 10) -> List[Document]:
-    """
-    Dense Search using Qdrant.
-    """
+        logger.info(
+            "BM25 index created with %d documents.",
+            len(documents)
+        )
 
-         logger.info(
-        "Dense Search..."
-         )
+    # --------------------------------------------------------
+    # Dense Search (Qdrant)
+    # --------------------------------------------------------
 
-        return self.vector_service.similarity_search(query=query,k=k)
-    def keyword_search( self,query: str,k: int = 10) -> List[Document]:
-    """
-    BM25 Search
-    """
+    def dense_search(
+        self,
+        query: str,
+        k: int = 10
+    ) -> List[Document]:
+
+        logger.info("Running Dense Search...")
+
+        return self.vector_service.similarity_search(
+            query=query,
+            k=k
+        )
+
+    # --------------------------------------------------------
+    # BM25 Search
+    # --------------------------------------------------------
+
+    def keyword_search(
+        self,
+        query: str,
+        k: int = 10
+    ) -> List[Document]:
+
+        logger.info("Running BM25 Search...")
 
         if self.bm25 is None:
 
-        logger.warning(
-            "BM25 not initialized."
+            logger.warning("BM25 has not been built yet.")
+
+            return []
+
+        scores = self.bm25.get_scores(
+            query.split()
         )
 
-        return []
-
-        scores = self.bm25.get_scores(query.split())
-
-        ranked = sorted(zip(scores, self.documents),
-
-        key=lambda x: x[0],
-
-        reverse=True
-
+        ranked = sorted(
+            zip(scores, self.documents),
+            key=lambda x: x[0],
+            reverse=True
         )
 
-        return [doc for _, doc in ranked[:k]]
-    def dense_search(self,query: str,k: int = 10) -> List[Document]:
-    """
-    Dense Search using Qdrant.
-    """
+        return [
+            doc
+            for _, doc in ranked[:k]
+        ]
 
-        logger.info(
-        "Dense Search..."
-        )
+    # --------------------------------------------------------
+    # Reciprocal Rank Fusion
+    # --------------------------------------------------------
 
-        return self.vector_service.similarity_search(
-        query=query,
-        k=k
-        )
-    def reciprocal_rank_fusion(self,dense_docs: List[Document],keyword_docs: List[Document],k: int = 60) -> List[Document]:
-    """
-    Merge Dense Search and BM25 results using
-    Reciprocal Rank Fusion (RRF).
-    """
+    def reciprocal_rank_fusion(
+        self,
+        dense_docs: List[Document],
+        keyword_docs: List[Document],
+        k: int = 60
+    ) -> List[Document]:
 
         logger.info("Applying Reciprocal Rank Fusion...")
 
@@ -106,8 +123,8 @@ class HybridSearchService:
             if key not in scores:
 
                 scores[key] = {
-                "document": doc,
-                "score": 0
+                    "document": doc,
+                    "score": 0.0
                 }
 
             scores[key]["score"] += 1 / (k + rank + 1)
@@ -118,66 +135,105 @@ class HybridSearchService:
 
             if key not in scores:
 
-                scores[key] = {"document": doc,"score": 0}
+                scores[key] = {
+                    "document": doc,
+                    "score": 0.0
+                }
 
-        scores[key]["score"] += 1 / (k + rank + 1)
+            scores[key]["score"] += 1 / (k + rank + 1)
 
-        ranked = sorted(scores.values(), key=lambda item: item["score"],reverse=True)
+        ranked = sorted(
+            scores.values(),
+            key=lambda item: item["score"],
+            reverse=True
+        )
 
-        logger.info("RRF returned %d documents.",len(ranked))
+        logger.info(
+            "RRF returned %d merged documents.",
+            len(ranked)
+        )
 
-        return [item["document"]for item in ranked]
-    def rerank(self,query: str,documents: List[Document],top_k: int = 5) -> List[Document]:
-    """
-    Re-rank retrieved documents using Cross Encoder.
-    """
+        return [
+            item["document"]
+            for item in ranked
+        ]
 
-        logger.info("Re-ranking documents...")
+    # --------------------------------------------------------
+    # Cross Encoder Re-ranking
+    # --------------------------------------------------------
+
+    def rerank(
+        self,
+        query: str,
+        documents: List[Document],
+        top_k: int = 5
+    ) -> List[Document]:
+
+        logger.info("Running CrossEncoder reranking...")
 
         if not documents:
             return []
 
-        pairs = [(query, doc.page_content)for doc in documents]
+        pairs = [
+            (query, doc.page_content)
+            for doc in documents
+        ]
 
-        scores = self.reranker.predict(pairs)
+        scores = self.reranker.predict(
+            pairs
+        )
 
-        ranked = sorted( zip(scores, documents),key=lambda item: item[0],reverse=True)
+        ranked = sorted(
+            zip(scores, documents),
+            key=lambda item: item[0],
+            reverse=True
+        )
 
-        return [doc for _, doc in ranked[:top_k]]
+        return [
+            doc
+            for _, doc in ranked[:top_k]
+        ]
 
-    def search(self,query: str,top_k: int = 5) -> List[Document]:
-    """
-    Complete Hybrid Search Pipeline.
+    # --------------------------------------------------------
+    # Complete Hybrid Search
+    # --------------------------------------------------------
 
-    Steps:
-        1. Dense Search
-        2. BM25 Search
-        3. Reciprocal Rank Fusion
-        4. Cross Encoder Re-ranking
-    """
+    def search(
+        self,
+        query: str,
+        top_k: int = 5
+    ) -> List[Document]:
 
-        logger.info("=" * 50)
+        logger.info("=" * 60)
         logger.info("Hybrid Search Started")
         logger.info("Query: %s", query)
 
-    # Step 1: Dense Search
-        dense_results = self.dense_search(query=query,k=10)
-
-    # Step 2: BM25 Search
-        keyword_results = self.keyword_search(query=query,k=10)
-
-    # Step 3: Merge Results
-        merged_results = self.reciprocal_rank_fusion(dense_results=dense_results,keyword_docs=keyword_results)
-
-
-    # Step 4: Re-rank Results
-        final_results = self.rerank(query=query,documents=merged_results,top_k=top_k)
-
-        logger.info(
-        "Hybrid Search Finished (%d documents).",
-        len(final_results)
+        dense_results = self.dense_search(
+            query=query,
+            k=10
         )
 
-        logger.info("=" * 50)
+        keyword_results = self.keyword_search(
+            query=query,
+            k=10
+        )
+
+        merged_results = self.reciprocal_rank_fusion(
+            dense_docs=dense_results,
+            keyword_docs=keyword_results
+        )
+
+        final_results = self.rerank(
+            query=query,
+            documents=merged_results,
+            top_k=top_k
+        )
+
+        logger.info(
+            "Hybrid Search Finished (%d documents).",
+            len(final_results)
+        )
+
+        logger.info("=" * 60)
 
         return final_results

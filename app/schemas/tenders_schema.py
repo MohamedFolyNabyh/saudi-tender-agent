@@ -1,11 +1,11 @@
-from fastapi import BaseModel
+from pydantic import BaseModel,Field
 
 
-class chatRequest(BaseModel):
+class ChatRequest(BaseModel):
     session_id:str=Field(
         description='unique identity of session'
     )
-    request:str=Field(
+    question:str=Field(
         description='user question',
         min_lenght=5,
         max_lenght=500
@@ -13,7 +13,7 @@ class chatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer:str
-    sources:list[str]
+    # sources:list[str]
     session_id:str
 
 class UploadResponse(BaseModel):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.tender_schema import (
+from app.schemas.tenders_schema import (
     ChatRequest,
     ChatResponse
 )
@@ -17,12 +17,11 @@ router = APIRouter(
     "/",
     response_model=ChatResponse
 )
-async def chat(
-    request: ChatRequest
-):
-    """
-    Chat with Saudi Tender Agent.
-    """
+async def chat(request: ChatRequest):
+
+        # """
+        # Chat with Saudi Tender Agent.
+        # """
 
     try:
 
@@ -30,13 +29,14 @@ async def chat(
 
             "session_id": request.session_id,
 
-            "question": request.question
+            "question":request.question
 
         })
 
         return ChatResponse(
 
-            answer=result["answer"]
+            answer=result["answer"],
+            session_id=request.session_id
 
         )
 

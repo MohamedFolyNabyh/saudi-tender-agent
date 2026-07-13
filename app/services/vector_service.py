@@ -1,6 +1,7 @@
 import logging
 from typing import List
 import uuid
+from langchain_core.documents import Document
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore  # تم تصحيح الاسم 💡
@@ -103,7 +104,7 @@ class VectorService:
             wait=True
         )
         logger.info('Documents inserted successfully')
-    def similarty_search(self,query:str,k:int=5) ->List[Document]:
+    def similarity_search (self,query:str,k:int=5) ->List[Document]:
         logger.info('searching for : %s',query)
         query_vector=self.embedding_model.embed_query(
             query
@@ -118,7 +119,7 @@ class VectorService:
             payload=point.payload
             document=Document(
                 page_content=payload.get("content",""),
-                metadata={key:value for key,value in payload.items if key!="content" }
+                metadata={key:value for key,value in payload.items() if key!="content" }
             )
             documents.append(document)
         logger.info("%d documents retrieved",
@@ -126,23 +127,21 @@ class VectorService:
         return documents
 
     def delete_collection(self) -> None:
-    """
-    Delete the collection.
-    """
 
-    self.client.delete_collection(
+
+        self.client.delete_collection(
         collection_name=self.COLLECTION_NAME
-    )
+        )
 
-    logger.info("Collection deleted.")
+        logger.info("Collection deleted.")
     def health_check(self) -> bool:
 
-    try:
+        try:
 
-        self.client.get_collections()
+            self.client.get_collections()
 
-        return True
+            return True
 
-    except Exception:
+        except Exception:
 
-        return False
+             return False
