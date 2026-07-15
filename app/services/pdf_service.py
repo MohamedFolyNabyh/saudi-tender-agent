@@ -230,6 +230,12 @@ class PDFService:
         docs = self.split_headers(text)
 
         chunks = self.split_chunks(docs)
+        
+
+        for index, chunk in enumerate(chunks):
+            chunk.metadata["chunk_id"] = index
+            chunk.metadata["source"] = Path(pdf_path).name
+
 
         logger.info(
             "Created %d chunks.",

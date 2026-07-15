@@ -39,3 +39,7 @@ pandas
 
 einops
 pillow
+
+
+requests
+streamlit

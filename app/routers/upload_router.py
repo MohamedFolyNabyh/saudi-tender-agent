@@ -108,6 +108,10 @@ async def upload_pdf(file: UploadFile = File(...)):
                 detail="No text found inside PDF."
             )
 
+       
+
+        vector_service.delete_source(file.filename)
+
         vector_service.add_documents(documents)
 
         hybrid_service.build_bm25(documents)

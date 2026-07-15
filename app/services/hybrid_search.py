@@ -198,20 +198,13 @@ class HybridSearchService:
     # Complete Hybrid Search
     # --------------------------------------------------------
 
-    def search(
-        self,
-        query: str,
-        top_k: int = 5
-    ) -> List[Document]:
+    def search(self,query: str,top_k: int = 5) -> List[Document]:
 
         logger.info("=" * 60)
         logger.info("Hybrid Search Started")
         logger.info("Query: %s", query)
 
-        dense_results = self.dense_search(
-            query=query,
-            k=10
-        )
+        dense_results = self.dense_search(query=query, k=10)
 
         keyword_results = self.keyword_search(
             query=query,
