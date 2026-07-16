@@ -330,24 +330,15 @@ The project can be deployed using:
 ---
 
 # Screenshots
-
 ## Upload Page
 
-*Add screenshot here.*
+![Upload Page](assets/upload.png)
 
 ---
 
 ## Chat Interface
 
-*Add screenshot here.*
-
----
-
-## System Architecture
-
-*Add architecture diagram here.*
-
----
+![Chat Interface](assets/chat.png)
 
 # Skills Demonstrated
 
