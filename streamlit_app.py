@@ -31,7 +31,7 @@ if "session_id" not in st.session_state:
 
 with st.sidebar:
 
-    st.title("Saudi Tender Agent")
+    st.title("DocuMind AI")
 
     st.write(f"**Session ID**")
     st.code(st.session_state.session_id)
@@ -39,7 +39,7 @@ with st.sidebar:
     st.divider()
 
     uploaded_file = st.file_uploader(
-        "Upload Tender PDF",
+        "Upload PDF",
         type=["pdf"]
     )
 
